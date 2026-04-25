@@ -41,7 +41,7 @@ Structure:
 1. Open `chrome://extensions`.
 2. Enable **Developer mode**.
 3. Click **Load unpacked**.
-4. Select this folder: `product-demo-recorder`.
+4. Select this folder: `vellum`.
 
 ## Usage
 

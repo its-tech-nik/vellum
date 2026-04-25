@@ -31,13 +31,13 @@
   "commands": {
     "record_snippet": {
       "suggested_key": {
-        "default": "Ctrl+Shift+R"
+        "default": "Ctrl+Comma"
       },
       "description": "Open recorder for focused field"
     },
     "play_snippet": {
       "suggested_key": {
-        "default": "Ctrl+Shift+P"
+        "default": "Ctrl+Period"
       },
       "description": "Replay snippet into focused field"
     }

@@ -1,4 +1,5 @@
 const STORAGE_KEY = "typingSimulatorSnippets";
+const EXT = globalThis.browser || globalThis.chrome;
 
 const listRoot = document.getElementById("snippet-list");
 const snippetTemplate = document.getElementById("snippet-template");
@@ -293,12 +294,12 @@ function openEditor(card, url, selector, record, interactionIndex) {
 }
 
 async function getStore() {
-  const data = await chrome.storage.local.get(STORAGE_KEY);
+  const data = await EXT.storage.local.get(STORAGE_KEY);
   return data[STORAGE_KEY] || {};
 }
 
 async function setStore(store) {
-  await chrome.storage.local.set({ [STORAGE_KEY]: store });
+  await EXT.storage.local.set({ [STORAGE_KEY]: store });
 }
 
 async function upsertSnippet(url, selector, snippet) {
@@ -355,7 +356,7 @@ function getUrlsForOrigin(store, origin) {
 }
 
 async function getActiveTabOrigin() {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const [tab] = await EXT.tabs.query({ active: true, currentWindow: true });
   if (!tab?.url) {
     return "";
   }

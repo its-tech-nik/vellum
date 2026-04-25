@@ -1,0 +1,50 @@
+{
+  "manifest_version": 2,
+  "name": "Vellum",
+  "description": "Record polished, reusable product demo flows with precision.",
+  "version": "1.0.0",
+  "permissions": ["storage", "activeTab", "scripting"],
+  "background": {
+    "scripts": ["background.js"]
+  },
+  "icons": {
+    "16": "assets/logo-16.png",
+    "48": "assets/logo-48.png",
+    "128": "assets/logo-128.png"
+  },
+  "browser_action": {
+    "default_title": "Vellum",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "assets/logo-16.png",
+      "48": "assets/logo-48.png",
+      "128": "assets/logo-128.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "commands": {
+    "record_snippet": {
+      "suggested_key": {
+        "default": "Ctrl+Comma"
+      },
+      "description": "Open recorder for focused field"
+    },
+    "play_snippet": {
+      "suggested_key": {
+        "default": "Ctrl+Period"
+      },
+      "description": "Replay snippet into focused field"
+    }
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "vellum@its-tech-nik"
+    }
+  }
+}

@@ -7,6 +7,7 @@ window.__typingSimulatorContentLoaded = true;
 const STORAGE_KEY = "typingSimulatorSnippets";
 const OVERLAY_ID = "typing-simulator-overlay";
 const OVERLAY_STYLE_ID = "typing-simulator-style";
+const EXT = globalThis.browser || globalThis.chrome;
 
 let activeElement = null;
 let activeSelector = null;
@@ -19,7 +20,7 @@ document.addEventListener("pointerdown", (event) => {
   updateActiveElement(event.target);
 });
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+EXT.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === "OPEN_RECORDER") {
     openRecorderOverlay();
     sendResponse({ ok: true });
@@ -150,12 +151,12 @@ function isLikelyStableToken(value) {
 }
 
 async function getStore() {
-  const data = await chrome.storage.local.get(STORAGE_KEY);
+  const data = await EXT.storage.local.get(STORAGE_KEY);
   return data[STORAGE_KEY] || {};
 }
 
 async function setStore(store) {
-  await chrome.storage.local.set({ [STORAGE_KEY]: store });
+  await EXT.storage.local.set({ [STORAGE_KEY]: store });
 }
 
 function getUrlKey() {

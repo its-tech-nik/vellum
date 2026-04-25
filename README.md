@@ -36,13 +36,40 @@ Structure:
 }
 ```
 
+## Build targets
+
+This repository supports both Chrome-based and Firefox-based browsers from one codebase.
+
+- Chrome-based config: `manifest.json`
+- Firefox-based config: `manifest.firefox.json`
+
+Build extension folders for both browsers:
+
+```bash
+python3 scripts/build-extension.py
+```
+
+This creates:
+
+- `dist/chrome` (uses Chrome manifest)
+- `dist/firefox` (uses Firefox manifest)
+
 ## Install (Developer Mode)
+
+### Chrome-based browsers (Chrome, Edge, Brave, Opera)
 
 1. Open `chrome://extensions`.
 2. Enable **Developer mode**.
 3. Click **Load unpacked**.
-4. Select this folder: `vellum`.
+4. Select `dist/chrome`.
 5. Open `chrome://extensions/shortcuts` and set up your own Vellum shortcuts for recording and replay.
+
+### Firefox-based browsers
+
+1. Open `about:debugging#/runtime/this-firefox`.
+2. Click **Load Temporary Add-on...**.
+3. Select `dist/firefox/manifest.json`.
+4. Open `about:addons` -> gear icon -> **Manage Extension Shortcuts** to set up your own Vellum shortcuts.
 
 ## Usage
 

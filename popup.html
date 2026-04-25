@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vellum</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <img src="assets/logo-48.png" alt="Vellum logo" />
+      <div>
+        <h1>Vellum</h1>
+        <p>Saved snippets by page URL</p>
+      </div>
+      <button id="clear-site-interactions" class="header-clear-btn" type="button">
+        Clear all interactions
+      </button>
+    </header>
+    <main>
+      <div class="search-wrap">
+        <input id="snippet-search" type="search" placeholder="Search selectors or snippet text..." />
+      </div>
+      <section id="snippet-list" class="snippet-list"></section>
+    </main>
+    <template id="snippet-template">
+      <article class="snippet-card">
+        <div class="snippet-meta">
+          <div class="snippet-meta-left">
+            <span class="snippet-step"></span>
+            <span class="snippet-next-indicator"></span>
+          </div>
+          <span class="snippet-duration"></span>
+        </div>
+        <div class="snippet-options"></div>
+        <pre class="snippet-preview"></pre>
+        <div class="snippet-actions">
+          <button data-action="edit">Edit</button>
+          <button data-action="delete" class="danger">Delete</button>
+        </div>
+      </article>
+    </template>
+    <script src="popup.js"></script>
+  </body>
+</html>

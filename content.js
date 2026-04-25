@@ -633,6 +633,7 @@ async function typeLikeHuman(element, text, durationSec) {
     } else {
       await typeCharacter(element, char);
     }
+    keepTypingVisible(element);
 
     const delayMs = delays[index];
     await sleep(delayMs);
@@ -686,6 +687,41 @@ function insertTextInInput(element, text) {
   }
 
   element.value = `${element.value || ""}${text}`;
+}
+
+function keepTypingVisible(element) {
+  if (!(element instanceof HTMLElement)) {
+    return;
+  }
+
+  element.scrollIntoView({ block: "nearest", inline: "nearest" });
+
+  if (element instanceof HTMLTextAreaElement) {
+    // Keep the latest typed text in view in multiline fields.
+    element.scrollTop = element.scrollHeight;
+    element.scrollLeft = element.scrollWidth;
+    return;
+  }
+
+  if (element instanceof HTMLInputElement) {
+    // Keep caret visibility in single-line overflowing inputs.
+    element.scrollLeft = element.scrollWidth;
+    return;
+  }
+
+  if (element.isContentEditable) {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) {
+      return;
+    }
+    const range = selection.getRangeAt(0);
+    const container = range.startContainer;
+    if (container instanceof HTMLElement) {
+      container.scrollIntoView({ block: "nearest", inline: "nearest" });
+    } else if (container?.parentElement) {
+      container.parentElement.scrollIntoView({ block: "nearest", inline: "nearest" });
+    }
+  }
 }
 
 function insertTextInEditable(element, text) {

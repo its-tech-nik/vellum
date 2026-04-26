@@ -43,10 +43,39 @@ This repository supports both Chrome-based and Firefox-based browsers from one c
 - Chrome-based config: `manifest.json`
 - Firefox-based config: `manifest.firefox.json`
 
-Build extension folders for both browsers:
+## Build prerequisites
+
+Install these tools before building:
+
+- `Node.js` (recommended: latest LTS, v20+)
+- `pnpm` (project package manager)
+- `zip` (required for Firefox zip packaging)
+
+Check your versions:
+
+```bash
+node -v
+pnpm -v
+zip -v
+```
+
+Install `pnpm` globally if needed:
+
+```bash
+npm install -g pnpm
+```
+
+## Build
+
+Install dependencies once:
 
 ```bash
 pnpm install
+```
+
+Build extension folders for both browsers:
+
+```bash
 pnpm build
 ```
 
@@ -54,6 +83,14 @@ This creates:
 
 - `dist/chrome` (uses Chrome manifest)
 - `dist/firefox` (uses Firefox manifest)
+- `dist/firefox.zip` (packaged Firefox upload artifact)
+
+Build a single target:
+
+```bash
+pnpm run build:chrome
+pnpm run build:firefox
+```
 
 ## Install (Developer Mode)
 

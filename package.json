@@ -1,0 +1,13 @@
+{
+  "name": "vellum-extension",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "build:chrome": "vite build --mode chrome",
+    "build:firefox": "vite build --mode firefox",
+    "build": "pnpm run build:chrome && pnpm run build:firefox"
+  },
+  "devDependencies": {
+    "vite": "^7.1.0"
+  }
+}

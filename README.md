@@ -46,7 +46,8 @@ This repository supports both Chrome-based and Firefox-based browsers from one c
 Build extension folders for both browsers:
 
 ```bash
-python3 scripts/build-extension.py
+pnpm install
+pnpm build
 ```
 
 This creates:

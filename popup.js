@@ -123,8 +123,7 @@ async function render() {
         if (!interaction) {
           continue;
         }
-        const interactionMatches =
-          selectorMatches || routeMatches || fuzzyMatch(interaction.text || "", searchQuery);
+        const interactionMatches = selectorMatches || routeMatches;
         if (!interactionMatches) {
           continue;
         }

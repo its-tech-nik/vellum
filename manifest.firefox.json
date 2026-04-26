@@ -33,7 +33,7 @@
       "suggested_key": {
         "default": "Ctrl+Comma"
       },
-      "description": "Open recorder for focused field"
+      "description": "Record input for focused field"
     },
     "play_snippet": {
       "suggested_key": {
@@ -44,7 +44,10 @@
   },
   "browser_specific_settings": {
     "gecko": {
-      "id": "vellum@its-tech-nik"
+      "id": "vellum@its-tech-nik",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
     }
   }
 }

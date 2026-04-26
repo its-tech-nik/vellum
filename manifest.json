@@ -33,7 +33,7 @@
       "suggested_key": {
         "default": "Ctrl+Comma"
       },
-      "description": "Open recorder for focused field"
+      "description": "Record input for focused field"
     },
     "play_snippet": {
       "suggested_key": {

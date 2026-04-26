@@ -553,7 +553,7 @@ async function openRecorderOverlay() {
 
   function restoreTargetPreview() {
     if (recorderTargetElement instanceof HTMLElement && recorderTargetElement.isContentEditable) {
-      recorderTargetElement.innerHTML = initialTargetSnapshot || "";
+      setContentEditableHtml(recorderTargetElement, initialTargetSnapshot || "");
       return;
     }
     if (recorderTargetElement instanceof HTMLInputElement || recorderTargetElement instanceof HTMLTextAreaElement) {
@@ -571,9 +571,12 @@ async function openRecorderOverlay() {
 
     if (recorderTargetElement instanceof HTMLElement && recorderTargetElement.isContentEditable) {
       const baseValue = shouldClear ? "" : (initialTargetSnapshot || "");
-      recorderTargetElement.innerHTML = useHtmlPreview
-        ? `${baseValue}${snippetText}`
-        : `${baseValue}${escapeHtml(snippetText).replace(/\n/g, "<br>")}`;
+      if (useHtmlPreview) {
+        setContentEditableHtml(recorderTargetElement, baseValue);
+        appendContentEditableHtml(recorderTargetElement, snippetText);
+      } else {
+        setContentEditableText(recorderTargetElement, `${baseValue}${snippetText}`);
+      }
       return;
     }
 
@@ -1249,19 +1252,10 @@ function normalizePlainTextLineBreaks(value) {
     .trimEnd();
 }
 
-function escapeHtml(value) {
-  return (value || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
 function applyHtmlContent(element, html, replace) {
   element.focus();
   if (replace) {
-    element.innerHTML = html;
+    setContentEditableHtml(element, html);
     dispatchInputEvent(element, html, "insertFromPaste");
     return;
   }
@@ -1274,8 +1268,38 @@ function applyHtmlContent(element, html, replace) {
     }
   }
 
-  element.innerHTML = `${element.innerHTML}${html}`;
+  appendContentEditableHtml(element, html);
   dispatchInputEvent(element, html, "insertFromPaste");
+}
+
+function createHtmlFragment(html) {
+  const parser = new DOMParser();
+  const parsed = parser.parseFromString(String(html || ""), "text/html");
+  const fragment = document.createDocumentFragment();
+  while (parsed.body.firstChild) {
+    fragment.appendChild(parsed.body.firstChild);
+  }
+  return fragment;
+}
+
+function setContentEditableHtml(element, html) {
+  element.replaceChildren(createHtmlFragment(html));
+}
+
+function appendContentEditableHtml(element, html) {
+  element.appendChild(createHtmlFragment(html));
+}
+
+function setContentEditableText(element, value) {
+  element.replaceChildren();
+  const text = String(value || "");
+  const lines = text.split("\n");
+  for (let i = 0; i < lines.length; i += 1) {
+    element.appendChild(document.createTextNode(lines[i]));
+    if (i < lines.length - 1) {
+      element.appendChild(document.createElement("br"));
+    }
+  }
 }
 
 function getElementProfile(element) {

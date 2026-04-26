@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "scripts": {
     "build:chrome": "vite build --mode chrome",
-    "build:firefox": "vite build --mode firefox",
+    "build:firefox": "vite build --mode firefox && cd dist/firefox && zip -r ../firefox.zip .",
     "build": "pnpm run build:chrome && pnpm run build:firefox"
   },
   "devDependencies": {

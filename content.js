@@ -12,6 +12,7 @@ const EXT = globalThis.browser || globalThis.chrome;
 
 let activeElement = null;
 let activeSelector = null;
+let currentReplaySessionId = 0;
 
 document.addEventListener("focusin", (event) => {
   updateActiveElement(event.target);
@@ -587,10 +588,11 @@ async function openRecorderOverlay() {
   }
 
   async function replayOverlayInput() {
+    const replaySessionId = startReplaySession();
     const text = textArea.value || "";
     const durationSec = Number(durationInput.value);
     if (!Number.isFinite(durationSec) || durationSec <= 0) {
-      return;
+      return false;
     }
 
     restoreTargetPreview();
@@ -606,8 +608,9 @@ async function openRecorderOverlay() {
       applyHtmlContent(recorderTargetElement, text, clearCheckbox.checked);
       await sleep(Math.max(100, durationSec * 1000));
     } else {
-      await typeLikeHuman(recorderTargetElement, text, durationSec);
+      await typeLikeHuman(recorderTargetElement, text, durationSec, replaySessionId);
     }
+    return !isReplaySessionCancelled(replaySessionId);
   }
 
   function onWindowKeyDown(event) {
@@ -686,8 +689,10 @@ async function openRecorderOverlay() {
   instantReplayButton.addEventListener("click", async () => {
     instantReplayButton.disabled = true;
     try {
-      await replayOverlayInput();
-      mirrorOverlayInputToTarget();
+      const replayCompleted = await replayOverlayInput();
+      if (replayCompleted) {
+        mirrorOverlayInputToTarget();
+      }
     } finally {
       instantReplayButton.disabled = !hasTargetSelector;
     }
@@ -810,6 +815,7 @@ async function getSnippetForSelector(selector, element) {
 }
 
 async function playRecordedSnippet() {
+  const replaySessionId = startReplaySession();
   updateActiveElement(document.activeElement);
   if (!activeElement || !activeSelector) {
     return;
@@ -828,6 +834,9 @@ async function playRecordedSnippet() {
     return;
   }
 
+  const nextIndex = (interactionIndex + 1) % resolved.record.interactions.length;
+  await persistReplayIndex(resolved.sourceKey, resolved.selector, nextIndex);
+
   activeElement.focus();
   if (snippet.clearBeforeType) {
     clearFieldValue(activeElement);
@@ -836,19 +845,23 @@ async function playRecordedSnippet() {
     applyHtmlContent(activeElement, snippet.text, snippet.clearBeforeType);
     await sleep(Math.max(100, snippet.durationSec * 1000));
   } else {
-    await typeLikeHuman(activeElement, snippet.text, snippet.durationSec);
+    await typeLikeHuman(activeElement, snippet.text, snippet.durationSec, replaySessionId);
   }
 
-  const nextIndex = (interactionIndex + 1) % resolved.record.interactions.length;
-  await persistReplayIndex(resolved.sourceKey, resolved.selector, nextIndex);
+  if (isReplaySessionCancelled(replaySessionId)) {
+    return;
+  }
 }
 
-async function typeLikeHuman(element, text, durationSec) {
+async function typeLikeHuman(element, text, durationSec, replaySessionId = null) {
   const totalDurationMs = Math.max(100, durationSec * 1000);
   const chars = Array.from(text);
   const delays = buildTypingDelays(chars.length, totalDurationMs);
 
   for (let index = 0; index < chars.length; index += 1) {
+    if (replaySessionId !== null && isReplaySessionCancelled(replaySessionId)) {
+      return;
+    }
     const char = chars[index];
     if (char === "\n") {
       await typeNewline(element);
@@ -860,6 +873,15 @@ async function typeLikeHuman(element, text, durationSec) {
     const delayMs = delays[index];
     await sleep(delayMs);
   }
+}
+
+function startReplaySession() {
+  currentReplaySessionId += 1;
+  return currentReplaySessionId;
+}
+
+function isReplaySessionCancelled(replaySessionId) {
+  return replaySessionId !== currentReplaySessionId;
 }
 
 async function typeCharacter(element, char) {

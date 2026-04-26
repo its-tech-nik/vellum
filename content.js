@@ -7,6 +7,7 @@ window.__typingSimulatorContentLoaded = true;
 const STORAGE_KEY = "typingSimulatorSnippets";
 const OVERLAY_ID = "typing-simulator-overlay";
 const OVERLAY_STYLE_ID = "typing-simulator-style";
+const ROUTE_KEY_DELIMITER = "::route::";
 const EXT = globalThis.browser || globalThis.chrome;
 
 let activeElement = null;
@@ -163,6 +164,28 @@ function getUrlKey() {
   return window.location.origin;
 }
 
+function getCurrentRoutePath() {
+  return (window.location.pathname || "").replace(/^\/+/, "");
+}
+
+function buildSelectorStorageKey(selector, routePath) {
+  if (!routePath) {
+    return selector;
+  }
+  return `${selector}${ROUTE_KEY_DELIMITER}${routePath}`;
+}
+
+function parseSelectorStorageKey(storageSelector) {
+  const delimiterIndex = storageSelector.indexOf(ROUTE_KEY_DELIMITER);
+  if (delimiterIndex < 0) {
+    return { selector: storageSelector, routePath: "" };
+  }
+  return {
+    selector: storageSelector.slice(0, delimiterIndex),
+    routePath: storageSelector.slice(delimiterIndex + ROUTE_KEY_DELIMITER.length)
+  };
+}
+
 function getOriginRelatedEntries(store) {
   const origin = window.location.origin;
   const relatedKeys = Object.keys(store).filter(
@@ -285,6 +308,15 @@ function ensureOverlayStyles() {
       margin: 0 0 10px;
       font-size: 12px;
     }
+    #${OVERLAY_ID} .typing-sim-checkbox span {
+      min-width: 0;
+    }
+    #${OVERLAY_ID} .typing-sim-route-text {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
     #${OVERLAY_ID} .typing-sim-checkbox input {
       margin: 0;
     }
@@ -326,6 +358,7 @@ async function openRecorderOverlay() {
   }
   const recorderTargetElement = activeElement;
   const recorderTargetSelector = activeSelector;
+  const currentRoutePath = getCurrentRoutePath();
   const hasTargetSelector = Boolean(recorderTargetSelector);
   const initialTargetSnapshot = getFieldContentForRecording(recorderTargetElement, true);
 
@@ -411,6 +444,18 @@ async function openRecorderOverlay() {
   clearLabel.append(clearCheckbox, clearText);
   overlay.appendChild(clearLabel);
 
+  const routeLabel = document.createElement("label");
+  routeLabel.className = "typing-sim-checkbox";
+  const routeCheckbox = document.createElement("input");
+  routeCheckbox.type = "checkbox";
+  routeCheckbox.checked = false;
+  const routeText = document.createElement("span");
+  routeText.className = "typing-sim-route-text";
+  routeText.textContent = `Only on route: (${currentRoutePath || "/"})`;
+  routeText.title = routeText.textContent;
+  routeLabel.append(routeCheckbox, routeText);
+  overlay.appendChild(routeLabel);
+
   const richLabel = document.createElement("label");
   richLabel.className = "typing-sim-checkbox";
   const richCheckbox = document.createElement("input");
@@ -441,6 +486,21 @@ async function openRecorderOverlay() {
   actions.append(cancelButton, appendButton, saveButton);
   overlay.appendChild(actions);
 
+  const store = await getStore();
+  const urlBucket = store[getUrlKey()] || {};
+  const globalStorageKey = buildSelectorStorageKey(recorderTargetSelector, "");
+  const routeStorageKey = buildSelectorStorageKey(recorderTargetSelector, currentRoutePath);
+
+  function hasStoredSequence(storageKey) {
+    const record = normalizeSnippetRecord(urlBucket[storageKey]);
+    return record.interactions.length > 0;
+  }
+
+  function updateAppendButtonVisibility() {
+    const targetStorageKey = routeCheckbox.checked ? routeStorageKey : globalStorageKey;
+    appendButton.style.display = hasStoredSequence(targetStorageKey) ? "" : "none";
+  }
+
   const existingEntry = await getSnippetForSelector(recorderTargetSelector, recorderTargetElement);
   const existing = existingEntry
     ? getInteractionForReplace(existingEntry.record)
@@ -450,14 +510,13 @@ async function openRecorderOverlay() {
     durationInput.value = String(existing.durationSec);
     clearCheckbox.checked = Boolean(existing.clearBeforeType);
     richCheckbox.checked = existing.contentType === "html";
+    routeCheckbox.checked = Boolean(existingEntry?.routePath);
   }
   const fieldSnapshot = getFieldContentForRecording(recorderTargetElement, richCheckbox.checked);
   if (fieldSnapshot) {
     textArea.value = fieldSnapshot;
   }
-  if (existingEntry?.record?.interactions?.length > 0) {
-    appendButton.style.display = "";
-  }
+  updateAppendButtonVisibility();
   saveButton.disabled = !hasTargetSelector;
   appendButton.disabled = !hasTargetSelector;
 
@@ -482,6 +541,7 @@ async function openRecorderOverlay() {
   textArea.addEventListener("input", mirrorOverlayInputToTarget);
   clearCheckbox.addEventListener("change", mirrorOverlayInputToTarget);
   richCheckbox.addEventListener("change", mirrorOverlayInputToTarget);
+  routeCheckbox.addEventListener("change", updateAppendButtonVisibility);
 
   function closeOverlay() {
     restoreTargetPreview();
@@ -608,6 +668,7 @@ async function openRecorderOverlay() {
       durationSec,
       clearBeforeType: clearCheckbox.checked,
       contentType: richCheckbox.checked ? "html" : "text",
+      routePath: routeCheckbox.checked ? currentRoutePath : "",
       targetElement: recorderTargetElement
     }, mode);
     closeOverlay();
@@ -645,7 +706,8 @@ async function saveSnippetForSelector(selector, payload, mode = "replace") {
   const url = getUrlKey();
   const store = await getStore();
   store[url] = store[url] || {};
-  const existingRecord = normalizeSnippetRecord(store[url][selector]);
+  const storageSelectorKey = buildSelectorStorageKey(selector, payload.routePath || "");
+  const existingRecord = normalizeSnippetRecord(store[url][storageSelectorKey]);
   const replaceIndex =
     mode === "replace" && existingRecord.interactions.length > 0
       ? getReplaceInteractionIndex(existingRecord)
@@ -673,7 +735,7 @@ async function saveSnippetForSelector(selector, payload, mode = "replace") {
     interactions = [interaction];
   }
 
-  store[url][selector] = {
+  store[url][storageSelectorKey] = {
     interactions,
     replayIndex: normalizeReplayIndex(existingRecord.replayIndex, interactions.length),
     updatedAt: Date.now(),
@@ -688,23 +750,53 @@ async function getSnippetForSelector(selector, element) {
   }
 
   const url = getUrlKey();
+  const currentRoutePath = getCurrentRoutePath();
   const store = await getStore();
   const pairs = getOriginRelatedEntryPairs(store);
   if (selector) {
-    const directMatch = pairs.find((pair) => pair.selector === selector && pair.sourceKey === url);
+    const directMatch = pairs.find(
+      (pair) =>
+        pair.selector === selector &&
+        pair.routePath === currentRoutePath &&
+        pair.sourceKey === url
+    );
     if (directMatch) {
       return {
         sourceKey: directMatch.sourceKey,
-        selector: directMatch.selector,
+        selector: directMatch.storageSelector,
+        routePath: directMatch.routePath,
         record: normalizeSnippetRecord(directMatch.record)
       };
     }
-    const looseExactMatch = pairs.find((pair) => pair.selector === selector);
+    const looseExactMatch = pairs.find(
+      (pair) => pair.selector === selector && pair.routePath === currentRoutePath
+    );
     if (looseExactMatch) {
       return {
         sourceKey: looseExactMatch.sourceKey,
-        selector: looseExactMatch.selector,
+        selector: looseExactMatch.storageSelector,
+        routePath: looseExactMatch.routePath,
         record: normalizeSnippetRecord(looseExactMatch.record)
+      };
+    }
+    const directGenericMatch = pairs.find(
+      (pair) => pair.selector === selector && !pair.routePath && pair.sourceKey === url
+    );
+    if (directGenericMatch) {
+      return {
+        sourceKey: directGenericMatch.sourceKey,
+        selector: directGenericMatch.storageSelector,
+        routePath: directGenericMatch.routePath,
+        record: normalizeSnippetRecord(directGenericMatch.record)
+      };
+    }
+    const looseGenericMatch = pairs.find((pair) => pair.selector === selector && !pair.routePath);
+    if (looseGenericMatch) {
+      return {
+        sourceKey: looseGenericMatch.sourceKey,
+        selector: looseGenericMatch.storageSelector,
+        routePath: looseGenericMatch.routePath,
+        record: normalizeSnippetRecord(looseGenericMatch.record)
       };
     }
   }
@@ -1018,8 +1110,15 @@ function getOriginRelatedEntryPairs(store) {
   const pairs = [];
   for (const sourceKey of relatedKeys) {
     const bucket = store[sourceKey] || {};
-    for (const [selector, record] of Object.entries(bucket)) {
-      pairs.push({ sourceKey, selector, record });
+    for (const [storageSelector, record] of Object.entries(bucket)) {
+      const parsed = parseSelectorStorageKey(storageSelector);
+      pairs.push({
+        sourceKey,
+        storageSelector,
+        selector: parsed.selector,
+        routePath: parsed.routePath,
+        record
+      });
     }
   }
   return pairs;

@@ -1,5 +1,6 @@
 const STORAGE_KEY = "typingSimulatorSnippets";
 const EXT = globalThis.browser || globalThis.chrome;
+const ROUTE_KEY_DELIMITER = "::route::";
 
 const listRoot = document.getElementById("snippet-list");
 const snippetTemplate = document.getElementById("snippet-template");
@@ -44,13 +45,16 @@ async function render() {
   const flattenedItems = [];
   let originalIndex = 0;
   for (const url of urls) {
-    const selectors = Object.keys(store[url] || {});
+    const storageSelectorKeys = Object.keys(store[url] || {});
 
-    for (const selector of selectors) {
-      const snippet = store[url][selector];
+    for (const storageSelectorKey of storageSelectorKeys) {
+      const snippet = store[url][storageSelectorKey];
+      const parsedSelector = parseSelectorStorageKey(storageSelectorKey);
       flattenedItems.push({
         url,
-        selector,
+        storageSelectorKey,
+        selector: parsedSelector.selector,
+        routePath: parsedSelector.routePath,
         snippet,
         createdAt: getRecordCreatedAt(snippet),
         originalIndex
@@ -70,103 +74,136 @@ async function render() {
   );
   updateSearchVisibility(hasRecordedInteractions);
 
-  let renderedCount = 0;
-  for (const { url, selector, snippet } of flattenedItems) {
-    const record = normalizeSnippetRecord(snippet);
-    if (record.interactions.length === 0) {
-      continue;
+  const groupedBySelector = new Map();
+  for (const item of flattenedItems) {
+    if (!groupedBySelector.has(item.selector)) {
+      groupedBySelector.set(item.selector, []);
     }
-    const isSequence = record.interactions.length > 1;
+    groupedBySelector.get(item.selector).push(item);
+  }
+
+  let renderedCount = 0;
+  for (const [selector, selectorItems] of groupedBySelector.entries()) {
+    const sortedSelectorItems = [...selectorItems].sort((a, b) => {
+      const aIsAllRoutes = !a.routePath;
+      const bIsAllRoutes = !b.routePath;
+      if (aIsAllRoutes !== bIsAllRoutes) {
+        return aIsAllRoutes ? -1 : 1;
+      }
+      return 0;
+    });
     const group = document.createElement("section");
     group.className = "sequence-group";
-    if (!isSequence) {
-      group.classList.add("single-step-group");
+    if (sortedSelectorItems.length === 1) {
+      group.classList.add("single-selector-entry-group");
     }
     const groupHeaderRow = document.createElement("div");
     groupHeaderRow.className = "sequence-group-header";
     const groupHeader = document.createElement("code");
     groupHeader.className = "sequence-group-title";
-    const stepLabel = record.interactions.length === 1 ? "1 step" : `${record.interactions.length} steps`;
-    groupHeader.textContent = `${selector} • ${stepLabel}`;
+    groupHeader.textContent = selector;
     groupHeaderRow.appendChild(groupHeader);
-    if (isSequence) {
-      const deleteSequenceBtn = document.createElement("button");
-      deleteSequenceBtn.className = "sequence-delete-btn";
-      deleteSequenceBtn.textContent = "Delete";
-      deleteSequenceBtn.addEventListener("click", async () => {
-        await deleteSnippet(url, selector);
-        await render();
-      });
-      groupHeaderRow.appendChild(deleteSequenceBtn);
-    }
     group.appendChild(groupHeaderRow);
 
     const groupItems = document.createElement("div");
     groupItems.className = "sequence-group-items";
     const selectorMatches = fuzzyMatch(selector, searchQuery);
+    const routeColorIndexByRoute = buildRouteColorMap(sortedSelectorItems);
 
-    for (let interactionIndex = 0; interactionIndex < record.interactions.length; interactionIndex += 1) {
-      const interaction = record.interactions[interactionIndex];
-      if (!interaction) {
+    for (const { url, storageSelectorKey, routePath, snippet } of sortedSelectorItems) {
+      const record = normalizeSnippetRecord(snippet);
+      if (record.interactions.length === 0) {
         continue;
       }
-      const interactionMatches =
-        selectorMatches || fuzzyMatch(interaction.text || "", searchQuery);
-      if (!interactionMatches) {
-        continue;
-      }
+      const routeDisplay = routePath ? `/${routePath}` : "all routes";
+      const routeMatches = fuzzyMatch(routeDisplay, searchQuery);
 
-      const card = snippetTemplate.content.firstElementChild.cloneNode(true);
-      const stepNode = card.querySelector(".snippet-step");
-      const nextNode = card.querySelector(".snippet-next-indicator");
-      const durationNode = card.querySelector(".snippet-duration");
-      const optionsNode = card.querySelector(".snippet-options");
-      const previewNode = card.querySelector(".snippet-preview");
-      const editBtn = card.querySelector('button[data-action="edit"]');
-      const deleteBtn = card.querySelector('button[data-action="delete"]');
-
-      if (isSequence) {
-        stepNode.textContent = `Step ${interactionIndex + 1}`;
-      } else {
-        stepNode.textContent = selector;
-        stepNode.classList.add("single-selector");
-        nextNode.style.display = "none";
-      }
-      durationNode.textContent = `${interaction.durationSec}s`;
-      const clearLabel = interaction.clearBeforeType
-        ? "clear field before replay"
-        : "append to existing text";
-      const isNextStep = interactionIndex === getPreviewInteractionIndex(record);
-      if (isNextStep && isSequence) {
-        card.classList.add("next-step");
-        nextNode.textContent = "Next";
-        nextNode.classList.add("active");
-      }
-      if (isSequence) {
-        optionsNode.textContent = `Options: ${clearLabel}`;
-      } else {
-        optionsNode.textContent = `Options: ${clearLabel}`;
-      }
-      previewNode.textContent = interaction.text;
-
-      editBtn.addEventListener("click", () => openEditor(card, url, selector, record, interactionIndex));
-      deleteBtn.addEventListener("click", async () => {
-        await deleteInteraction(url, selector, interactionIndex);
-        await render();
-      });
-      card.addEventListener("dblclick", (event) => {
-        if (event.target instanceof HTMLElement && event.target.closest("button")) {
-          return;
+      for (let interactionIndex = 0; interactionIndex < record.interactions.length; interactionIndex += 1) {
+        const interaction = record.interactions[interactionIndex];
+        if (!interaction) {
+          continue;
         }
-        openEditor(card, url, selector, record, interactionIndex);
-      });
+        const interactionMatches =
+          selectorMatches || routeMatches || fuzzyMatch(interaction.text || "", searchQuery);
+        if (!interactionMatches) {
+          continue;
+        }
 
-      groupItems.appendChild(card);
+        const card = snippetTemplate.content.firstElementChild.cloneNode(true);
+        const stepNode = card.querySelector(".snippet-step");
+        const nextNode = card.querySelector(".snippet-next-indicator");
+        const durationNode = card.querySelector(".snippet-duration");
+        const optionsNode = card.querySelector(".snippet-options");
+        const previewNode = card.querySelector(".snippet-preview");
+        const actionsNode = card.querySelector(".snippet-actions");
+        const editBtn = card.querySelector('button[data-action="edit"]');
+        const deleteBtn = card.querySelector('button[data-action="delete"]');
+
+        stepNode.textContent = `Step ${interactionIndex + 1}`;
+        const routeColorIndex = routeColorIndexByRoute.get(routePath || "") || 0;
+        stepNode.classList.add(`route-color-${routeColorIndex}`);
+        card.classList.add(`route-line-color-${routeColorIndex}`);
+        if (record.interactions.length === 1) {
+          card.classList.add("single-interaction-card");
+          if (sortedSelectorItems.length === 1) {
+            card.classList.add("single-interaction-no-line");
+          }
+        }
+        durationNode.textContent = `${interaction.durationSec}s`;
+        const clearLabel = interaction.clearBeforeType
+          ? "clear field before replay"
+          : "append to existing text";
+        const isNextStep = interactionIndex === getPreviewInteractionIndex(record);
+        if (isNextStep && record.interactions.length > 1) {
+          card.classList.add("next-step");
+          nextNode.textContent = "Next";
+          nextNode.classList.add("active");
+        }
+        if (record.interactions.length === 1) {
+          durationNode.style.display = "none";
+          optionsNode.classList.add("single-interaction-options");
+          const optionsTextNode = document.createElement("span");
+          optionsTextNode.textContent = `Options: ${clearLabel}`;
+          const inlineDurationNode = document.createElement("span");
+          inlineDurationNode.className = "single-interaction-inline-duration";
+          inlineDurationNode.textContent = `${interaction.durationSec}s`;
+          optionsNode.replaceChildren(optionsTextNode, inlineDurationNode);
+        } else {
+          optionsNode.textContent = `Options: ${clearLabel}`;
+        }
+        previewNode.textContent = interaction.text;
+
+        const routeNode = document.createElement("span");
+        routeNode.className = "snippet-route-label";
+        routeNode.textContent = `Route: ${routeDisplay}`;
+        routeNode.title = routeNode.textContent;
+
+        const buttonWrap = document.createElement("div");
+        buttonWrap.className = "snippet-actions-buttons";
+        buttonWrap.append(editBtn, deleteBtn);
+        actionsNode.replaceChildren(routeNode, buttonWrap);
+
+        editBtn.addEventListener("click", () =>
+          openEditor(card, url, storageSelectorKey, selector, routePath, record, interactionIndex)
+        );
+        deleteBtn.addEventListener("click", async () => {
+          await deleteInteraction(url, storageSelectorKey, interactionIndex);
+          await render();
+        });
+        card.addEventListener("dblclick", (event) => {
+          if (event.target instanceof HTMLElement && event.target.closest("button")) {
+            return;
+          }
+          openEditor(card, url, storageSelectorKey, selector, routePath, record, interactionIndex);
+        });
+
+        groupItems.appendChild(card);
+        renderedCount += 1;
+      }
     }
     if (groupItems.children.length > 0) {
       group.appendChild(groupItems);
       listRoot.appendChild(group);
-      renderedCount += groupItems.children.length;
     }
   }
 
@@ -217,7 +254,7 @@ async function clearAllInteractionsForActiveOrigin() {
   await render();
 }
 
-function openEditor(card, url, selector, record, interactionIndex) {
+function openEditor(card, url, storageSelectorKey, selector, routePath, record, interactionIndex) {
   card.innerHTML = "";
   const interaction = record.interactions[interactionIndex];
   if (!interaction) {
@@ -231,7 +268,7 @@ function openEditor(card, url, selector, record, interactionIndex) {
   if (record.interactions.length === 1) {
     const editorTarget = document.createElement("code");
     editorTarget.className = "editor-target";
-    editorTarget.textContent = selector;
+    editorTarget.textContent = routePath ? `${selector} • /${routePath}` : `${selector} • all routes`;
     editor.appendChild(editorTarget);
   } else {
     const editorStep = document.createElement("div");
@@ -284,7 +321,7 @@ function openEditor(card, url, selector, record, interactionIndex) {
       durationSec,
       clearBeforeType: clearCheckbox.checked
     };
-    await upsertSnippet(url, selector, nextRecord);
+    await upsertSnippet(url, storageSelectorKey, nextRecord);
     await render();
   });
 
@@ -424,6 +461,32 @@ function getRecordCreatedAt(record) {
   const first = normalized.interactions[0];
   const raw = Number(first?.updatedAt || normalized.updatedAt || 0);
   return Number.isFinite(raw) && raw > 0 ? raw : Number.MAX_SAFE_INTEGER;
+}
+
+function parseSelectorStorageKey(storageSelector) {
+  const delimiterIndex = storageSelector.indexOf(ROUTE_KEY_DELIMITER);
+  if (delimiterIndex < 0) {
+    return { selector: storageSelector, routePath: "" };
+  }
+  return {
+    selector: storageSelector.slice(0, delimiterIndex),
+    routePath: storageSelector.slice(delimiterIndex + ROUTE_KEY_DELIMITER.length)
+  };
+}
+
+function buildRouteColorMap(items) {
+  const paletteSize = 5;
+  const map = new Map();
+  let nextIndex = 0;
+  for (const item of items) {
+    const key = item.routePath || "";
+    if (map.has(key)) {
+      continue;
+    }
+    map.set(key, nextIndex % paletteSize);
+    nextIndex += 1;
+  }
+  return map;
 }
 
 function normalizeSearchText(value) {

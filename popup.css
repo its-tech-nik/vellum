@@ -125,8 +125,17 @@ body {
 .sequence-group-items {
   display: grid;
   gap: 6px;
-  border-left: 2px solid #1e293b;
+  border-left: 0;
   padding-left: 10px;
+}
+
+.single-selector-entry-group .sequence-group-items {
+  padding-left: 0;
+}
+
+.single-selector-entry-group .snippet-card.single-interaction-no-line {
+  padding-left: 1px;
+  padding-top: 0;
 }
 
 .single-step-group .sequence-group-items {
@@ -150,6 +159,18 @@ body {
   padding: 8px;
   background: transparent;
   box-shadow: none;
+  position: relative;
+}
+
+.sequence-group-items .snippet-card::before {
+  content: "";
+  position: absolute;
+  left: -11px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  border-radius: 2px;
+  background: #1e293b;
 }
 
 .snippet-card.next-step {
@@ -178,6 +199,68 @@ body {
   border: 1px solid #1e3a8a;
   border-radius: 999px;
   padding: 2px 8px;
+}
+
+.snippet-step.route-color-0 {
+  color: #dbeafe;
+  background: #1e3a8a;
+  border-color: #2563eb;
+}
+
+.snippet-step.route-color-1 {
+  color: #dcfce7;
+  background: #14532d;
+  border-color: #16a34a;
+}
+
+.snippet-step.route-color-2 {
+  color: #f3e8ff;
+  background: #581c87;
+  border-color: #7e22ce;
+}
+
+.snippet-step.route-color-3 {
+  color: #ffedd5;
+  background: #7c2d12;
+  border-color: #ea580c;
+}
+
+.snippet-step.route-color-4 {
+  color: #fce7f3;
+  background: #831843;
+  border-color: #db2777;
+}
+
+.sequence-group-items .snippet-card.route-line-color-0::before {
+  background: #2563eb;
+}
+
+.sequence-group-items .snippet-card.route-line-color-1::before {
+  background: #16a34a;
+}
+
+.sequence-group-items .snippet-card.route-line-color-2::before {
+  background: #7e22ce;
+}
+
+.sequence-group-items .snippet-card.route-line-color-3::before {
+  background: #ea580c;
+}
+
+.sequence-group-items .snippet-card.route-line-color-4::before {
+  background: #db2777;
+}
+
+.sequence-group-items .snippet-card.single-interaction-no-line::before {
+  display: none;
+}
+
+.snippet-card.single-interaction-card .snippet-step {
+  display: none;
+}
+
+.snippet-card.single-interaction-card .snippet-meta {
+  display: none;
 }
 
 .snippet-step.single-selector {
@@ -217,6 +300,19 @@ body {
   color: #94a3b8;
 }
 
+.snippet-options.single-interaction-options {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.single-interaction-inline-duration {
+  margin-left: auto;
+  color: #cbd5e1;
+  white-space: nowrap;
+}
+
 .snippet-preview {
   margin: 0 0 8px;
   padding: 8px;
@@ -232,8 +328,26 @@ body {
 
 .snippet-actions {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
   gap: 8px;
+}
+
+.snippet-actions-buttons {
+  display: inline-flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.snippet-route-label {
+  display: inline-block;
+  min-width: 0;
+  max-width: 250px;
+  font-size: 11px;
+  color: #94a3b8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 button {

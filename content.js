@@ -196,9 +196,33 @@ function ensureOverlayStyles() {
       font-family: Arial, sans-serif;
       padding: 12px;
     }
-    #${OVERLAY_ID} h3 {
+    #${OVERLAY_ID} .typing-sim-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
       margin: 0 0 10px;
+    }
+    #${OVERLAY_ID} h3 {
+      margin: 0;
       font-size: 14px;
+    }
+    #${OVERLAY_ID} .typing-sim-instant-replay-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      background: #1d4ed8;
+      color: #ffffff;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      line-height: 1;
+      padding: 0;
+      text-indent: 1px;
+    }
+    #${OVERLAY_ID} .typing-sim-instant-replay-btn:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
     }
     #${OVERLAY_ID} .typing-sim-target {
       margin: 0 0 10px;
@@ -311,9 +335,18 @@ async function openRecorderOverlay() {
   const overlay = document.createElement("div");
   overlay.id = OVERLAY_ID;
 
+  const header = document.createElement("div");
+  header.className = "typing-sim-header";
   const title = document.createElement("h3");
   title.textContent = "Record Interaction";
-  overlay.appendChild(title);
+  const instantReplayButton = document.createElement("button");
+  instantReplayButton.type = "button";
+  instantReplayButton.className = "typing-sim-instant-replay-btn";
+  instantReplayButton.title = "Instant replay";
+  instantReplayButton.textContent = "▶";
+  instantReplayButton.disabled = !hasTargetSelector;
+  header.append(title, instantReplayButton);
+  overlay.appendChild(header);
 
   const targetInfo = document.createElement("div");
   targetInfo.className = "typing-sim-target";
@@ -490,6 +523,30 @@ async function openRecorderOverlay() {
     }
   }
 
+  async function replayOverlayInput() {
+    const text = textArea.value || "";
+    const durationSec = Number(durationInput.value);
+    if (!Number.isFinite(durationSec) || durationSec <= 0) {
+      return;
+    }
+
+    restoreTargetPreview();
+    recorderTargetElement.focus();
+    if (clearCheckbox.checked) {
+      clearFieldValue(recorderTargetElement);
+    }
+    if (
+      richCheckbox.checked &&
+      recorderTargetElement instanceof HTMLElement &&
+      recorderTargetElement.isContentEditable
+    ) {
+      applyHtmlContent(recorderTargetElement, text, clearCheckbox.checked);
+      await sleep(Math.max(100, durationSec * 1000));
+    } else {
+      await typeLikeHuman(recorderTargetElement, text, durationSec);
+    }
+  }
+
   function onWindowKeyDown(event) {
     if (event.key === "Escape") {
       event.preventDefault();
@@ -561,6 +618,15 @@ async function openRecorderOverlay() {
   });
   appendButton.addEventListener("click", async () => {
     await persistInteraction("append");
+  });
+  instantReplayButton.addEventListener("click", async () => {
+    instantReplayButton.disabled = true;
+    try {
+      await replayOverlayInput();
+      mirrorOverlayInputToTarget();
+    } finally {
+      instantReplayButton.disabled = !hasTargetSelector;
+    }
   });
 
   document.body.appendChild(overlay);

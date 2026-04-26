@@ -303,6 +303,7 @@ async function openRecorderOverlay() {
   const recorderTargetElement = activeElement;
   const recorderTargetSelector = activeSelector;
   const hasTargetSelector = Boolean(recorderTargetSelector);
+  const initialTargetSnapshot = getFieldContentForRecording(recorderTargetElement, true);
 
   ensureOverlayStyles();
   document.getElementById(OVERLAY_ID)?.remove();
@@ -445,12 +446,48 @@ async function openRecorderOverlay() {
 
   textArea.addEventListener("keydown", onOverlayFieldKeyDown);
   durationInput.addEventListener("keydown", onOverlayFieldKeyDown);
+  textArea.addEventListener("input", mirrorOverlayInputToTarget);
+  clearCheckbox.addEventListener("change", mirrorOverlayInputToTarget);
+  richCheckbox.addEventListener("change", mirrorOverlayInputToTarget);
 
   function closeOverlay() {
+    restoreTargetPreview();
     window.removeEventListener("keydown", onWindowKeyDown, true);
     window.removeEventListener("resize", updateOverlayPosition);
     window.removeEventListener("scroll", updateOverlayPosition, true);
     overlay.remove();
+  }
+
+  function restoreTargetPreview() {
+    if (recorderTargetElement instanceof HTMLElement && recorderTargetElement.isContentEditable) {
+      recorderTargetElement.innerHTML = initialTargetSnapshot || "";
+      return;
+    }
+    if (recorderTargetElement instanceof HTMLInputElement || recorderTargetElement instanceof HTMLTextAreaElement) {
+      recorderTargetElement.value = initialTargetSnapshot || "";
+    }
+  }
+
+  function mirrorOverlayInputToTarget() {
+    const snippetText = textArea.value || "";
+    const shouldClear = clearCheckbox.checked;
+    const useHtmlPreview =
+      richCheckbox.checked &&
+      recorderTargetElement instanceof HTMLElement &&
+      recorderTargetElement.isContentEditable;
+
+    if (recorderTargetElement instanceof HTMLElement && recorderTargetElement.isContentEditable) {
+      const baseValue = shouldClear ? "" : (initialTargetSnapshot || "");
+      recorderTargetElement.innerHTML = useHtmlPreview
+        ? `${baseValue}${snippetText}`
+        : `${baseValue}${escapeHtml(snippetText).replace(/\n/g, "<br>")}`;
+      return;
+    }
+
+    if (recorderTargetElement instanceof HTMLInputElement || recorderTargetElement instanceof HTMLTextAreaElement) {
+      const baseValue = shouldClear ? "" : (initialTargetSnapshot || "");
+      recorderTargetElement.value = `${baseValue}${snippetText}`;
+    }
   }
 
   function onWindowKeyDown(event) {
@@ -462,18 +499,41 @@ async function openRecorderOverlay() {
 
   function updateOverlayPosition() {
     const margin = 12;
+    const gap = 8;
     const rect = recorderTargetElement.getBoundingClientRect();
-    const overlayRect = overlay.getBoundingClientRect();
-    const preferredTop = rect.bottom + 8;
+    const spaceAbove = rect.top - margin - gap;
+    const spaceBelow = window.innerHeight - rect.bottom - margin - gap;
+
+    // Measure natural height first, then constrain only when needed.
+    overlay.style.maxHeight = "";
+    overlay.style.overflowY = "";
+    let overlayRect = overlay.getBoundingClientRect();
+    const naturalHeight = overlayRect.height;
+    const hasSpaceBelow = spaceBelow >= naturalHeight;
+
+    let top;
+    if (hasSpaceBelow) {
+      top = rect.bottom + gap;
+    } else {
+      const maxHeightAbove = Math.max(80, Math.floor(spaceAbove));
+      if (spaceAbove < naturalHeight) {
+        overlay.style.maxHeight = `${maxHeightAbove}px`;
+        overlay.style.overflowY = "auto";
+        overlayRect = overlay.getBoundingClientRect();
+      }
+      top = rect.top - overlayRect.height - gap;
+    }
+    const maxTop = window.innerHeight - overlayRect.height - margin;
+    top = Math.max(margin, Math.min(maxTop, top));
+
+    const minLeft = margin;
+    const maxLeft = window.innerWidth - overlayRect.width - margin;
     const preferredLeft = rect.left;
-    const top = Math.max(
-      margin,
-      Math.min(window.innerHeight - overlayRect.height - margin, preferredTop)
-    );
-    const left = Math.max(
-      margin,
-      Math.min(window.innerWidth - overlayRect.width - margin, preferredLeft)
-    );
+    const rightAlignedLeft = rect.right - overlayRect.width;
+    const leftOverflowsRightEdge = preferredLeft + overlayRect.width > window.innerWidth - margin;
+    const baseLeft = leftOverflowsRightEdge ? rightAlignedLeft : preferredLeft;
+    const left = Math.max(minLeft, Math.min(maxLeft, baseLeft));
+
     overlay.style.top = `${top}px`;
     overlay.style.left = `${left}px`;
   }
@@ -1022,6 +1082,15 @@ function normalizePlainTextLineBreaks(value) {
     .replace(/\r\n?/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .trimEnd();
+}
+
+function escapeHtml(value) {
+  return (value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 function applyHtmlContent(element, html, replace) {

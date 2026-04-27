@@ -213,6 +213,9 @@ async function render() {
           await render();
         });
         card.addEventListener("dblclick", (event) => {
+          if (card.dataset.editing === "true") {
+            return;
+          }
           if (event.target instanceof HTMLElement && event.target.closest("button")) {
             return;
           }
@@ -277,6 +280,7 @@ async function clearAllInteractionsForActiveOrigin() {
 }
 
 function openEditor(card, url, storageSelectorKey, selector, routePath, record, interactionIndex) {
+  card.dataset.editing = "true";
   card.innerHTML = "";
   const interaction = record.interactions[interactionIndex];
   if (!interaction) {

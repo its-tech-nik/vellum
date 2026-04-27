@@ -301,6 +301,7 @@ function openEditor(card, url, storageSelectorKey, selector, routePath, record, 
 
   const textArea = document.createElement("textarea");
   textArea.value = interaction.text;
+  textArea.addEventListener("input", () => autoSizeEditorTextarea(textArea));
   editor.appendChild(textArea);
 
   const durationInput = document.createElement("input");
@@ -348,6 +349,8 @@ function openEditor(card, url, storageSelectorKey, selector, routePath, record, 
   });
 
   card.appendChild(editor);
+  // Recalculate after mount so wrapped content width is accurate.
+  requestAnimationFrame(() => autoSizeEditorTextarea(textArea));
   textArea.focus();
   textArea.setSelectionRange(textArea.value.length, textArea.value.length);
 }
@@ -538,6 +541,15 @@ function fuzzyMatch(haystack, needle) {
     }
   }
   return queryIndex === normalizedNeedle.length;
+}
+
+function autoSizeEditorTextarea(textArea) {
+  const minHeightPx = 100;
+  const maxHeightPx = 350;
+  textArea.style.height = "auto";
+  const targetHeight = Math.min(maxHeightPx, Math.max(minHeightPx, textArea.scrollHeight));
+  textArea.style.height = `${targetHeight}px`;
+  textArea.style.overflowY = textArea.scrollHeight > maxHeightPx ? "auto" : "hidden";
 }
 
 async function copyInteractionText(text) {

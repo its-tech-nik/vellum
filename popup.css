@@ -445,7 +445,11 @@ button.danger {
 
 .editor textarea {
   min-height: 100px;
+  max-height: 350px;
+  max-width: 100%;
+  resize: vertical;
   white-space: pre-wrap;
+  overflow-y: hidden;
 }
 
 .editor-checkbox {

@@ -171,6 +171,16 @@ async function render() {
           optionsNode.textContent = `Options: ${clearLabel}`;
         }
         previewNode.textContent = interaction.text;
+        const previewWrap = document.createElement("div");
+        previewWrap.className = "snippet-preview-wrap";
+        const copyButton = document.createElement("button");
+        copyButton.type = "button";
+        copyButton.className = "snippet-copy-btn";
+        copyButton.title = "Copy text";
+        copyButton.setAttribute("aria-label", "Copy text");
+        copyButton.textContent = "⧉";
+        previewNode.replaceWith(previewWrap);
+        previewWrap.append(copyButton, previewNode);
 
         const routeNode = document.createElement("span");
         routeNode.className = "snippet-route-label";
@@ -185,6 +195,19 @@ async function render() {
         editBtn.addEventListener("click", () =>
           openEditor(card, url, storageSelectorKey, selector, routePath, record, interactionIndex)
         );
+        copyButton.addEventListener("click", async () => {
+          const copied = await copyInteractionText(interaction.text);
+          if (!copied) {
+            return;
+          }
+          const previousIcon = copyButton.textContent;
+          copyButton.textContent = "✓";
+          copyButton.classList.add("copied");
+          window.setTimeout(() => {
+            copyButton.textContent = previousIcon;
+            copyButton.classList.remove("copied");
+          }, 900);
+        });
         deleteBtn.addEventListener("click", async () => {
           await deleteInteraction(url, storageSelectorKey, interactionIndex);
           await render();
@@ -515,5 +538,18 @@ function fuzzyMatch(haystack, needle) {
     }
   }
   return queryIndex === normalizedNeedle.length;
+}
+
+async function copyInteractionText(text) {
+  const value = typeof text === "string" ? text : "";
+  if (!value) {
+    return false;
+  }
+  try {
+    await navigator.clipboard.writeText(value);
+    return true;
+  } catch {
+    return false;
+  }
 }
 

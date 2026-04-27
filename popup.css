@@ -331,6 +331,43 @@ body {
   overflow: auto;
 }
 
+.snippet-preview-wrap {
+  position: relative;
+}
+
+.snippet-preview-wrap .snippet-preview {
+  padding-right: 40px;
+}
+
+.snippet-copy-btn {
+  position: absolute;
+  top: 7px;
+  right: 14px;
+  width: 24px;
+  height: 24px;
+  border: 1px solid #334155;
+  border-radius: 5px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #111827cc;
+  color: #cbd5e1;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.snippet-copy-btn:hover {
+  background: #1f2937;
+  color: #e5e7eb;
+}
+
+.snippet-copy-btn.copied {
+  border-color: #16a34a;
+  color: #86efac;
+}
+
 .snippet-actions {
   display: flex;
   justify-content: space-between;

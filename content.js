@@ -926,20 +926,15 @@ async function typeCharacter(element, char) {
 }
 
 async function typeNewline(element) {
-  dispatchKeyboardEvent(element, "keydown", "Enter");
-  dispatchBeforeInputEvent(element, "\n", "insertLineBreak");
+  dispatchBeforeInputEvent(element, "\n", "insertText");
 
-  if (element instanceof HTMLTextAreaElement || element instanceof HTMLInputElement) {
+  if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
     insertTextInInput(element, "\n");
   } else {
-    const entered = triggerEnterForEditable(element);
-    if (!entered) {
-      insertLineBreakInEditable(element);
-    }
+    insertTextInEditable(element, "\n");
   }
 
-  dispatchInputEvent(element, "\n", "insertLineBreak");
-  dispatchKeyboardEvent(element, "keyup", "Enter");
+  dispatchInputEvent(element, "\n", "insertText");
 }
 
 function insertTextInInput(element, text) {

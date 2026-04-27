@@ -13,6 +13,7 @@ const EXT = globalThis.browser || globalThis.chrome;
 let activeElement = null;
 let activeSelector = null;
 let currentReplaySessionId = 0;
+let activeShortcutReplay = null;
 
 document.addEventListener("focusin", (event) => {
   updateActiveElement(event.target);
@@ -815,6 +816,15 @@ async function getSnippetForSelector(selector, element) {
 }
 
 async function playRecordedSnippet() {
+  if (activeShortcutReplay) {
+    const shouldStopNow =
+      activeShortcutReplay.interactionCount === 1 || activeShortcutReplay.nextIndex === 0;
+    if (shouldStopNow) {
+      cancelCurrentReplaySession();
+    }
+    return;
+  }
+
   const replaySessionId = startReplaySession();
   updateActiveElement(document.activeElement);
   if (!activeElement || !activeSelector) {
@@ -834,22 +844,35 @@ async function playRecordedSnippet() {
     return;
   }
 
+  const interactionCount = resolved.record.interactions.length;
   const nextIndex = (interactionIndex + 1) % resolved.record.interactions.length;
   await persistReplayIndex(resolved.sourceKey, resolved.selector, nextIndex);
 
-  activeElement.focus();
-  if (snippet.clearBeforeType) {
-    clearFieldValue(activeElement);
-  }
-  if (snippet.contentType === "html" && activeElement instanceof HTMLElement && activeElement.isContentEditable) {
-    applyHtmlContent(activeElement, snippet.text, snippet.clearBeforeType);
-    await sleep(Math.max(100, snippet.durationSec * 1000));
-  } else {
-    await typeLikeHuman(activeElement, snippet.text, snippet.durationSec, replaySessionId);
-  }
+  activeShortcutReplay = {
+    replaySessionId,
+    interactionCount,
+    nextIndex
+  };
 
-  if (isReplaySessionCancelled(replaySessionId)) {
-    return;
+  try {
+    activeElement.focus();
+    if (snippet.clearBeforeType) {
+      clearFieldValue(activeElement);
+    }
+    if (snippet.contentType === "html" && activeElement instanceof HTMLElement && activeElement.isContentEditable) {
+      applyHtmlContent(activeElement, snippet.text, snippet.clearBeforeType);
+      await sleep(Math.max(100, snippet.durationSec * 1000));
+    } else {
+      await typeLikeHuman(activeElement, snippet.text, snippet.durationSec, replaySessionId);
+    }
+
+    if (isReplaySessionCancelled(replaySessionId)) {
+      return;
+    }
+  } finally {
+    if (activeShortcutReplay?.replaySessionId === replaySessionId) {
+      activeShortcutReplay = null;
+    }
   }
 }
 
@@ -880,6 +903,10 @@ function startReplaySession() {
   return currentReplaySessionId;
 }
 
+function cancelCurrentReplaySession() {
+  currentReplaySessionId += 1;
+}
+
 function isReplaySessionCancelled(replaySessionId) {
   return replaySessionId !== currentReplaySessionId;
 }
@@ -899,7 +926,8 @@ async function typeCharacter(element, char) {
 }
 
 async function typeNewline(element) {
-  dispatchKeyboardEvent(element, "keydown", "Enter");
+  dispatchKeyboardEvent(element, "keydown", "Control", { ctrlKey: true });
+  dispatchKeyboardEvent(element, "keydown", "Enter", { ctrlKey: true });
   dispatchBeforeInputEvent(element, "\n", "insertLineBreak");
 
   if (element instanceof HTMLTextAreaElement || element instanceof HTMLInputElement) {
@@ -912,7 +940,8 @@ async function typeNewline(element) {
   }
 
   dispatchInputEvent(element, "\n", "insertLineBreak");
-  dispatchKeyboardEvent(element, "keyup", "Enter");
+  dispatchKeyboardEvent(element, "keyup", "Enter", { ctrlKey: true });
+  dispatchKeyboardEvent(element, "keyup", "Control");
 }
 
 function insertTextInInput(element, text) {
@@ -1026,12 +1055,18 @@ function insertLineBreakInEditable(element) {
   selection.addRange(range);
 }
 
-function dispatchKeyboardEvent(element, type, key) {
-  const code = key === "Enter" ? "Enter" : `Key${String(key).toUpperCase()}`;
+function dispatchKeyboardEvent(element, type, key, options = {}) {
+  let code = `Key${String(key).toUpperCase()}`;
+  if (key === "Enter") {
+    code = "Enter";
+  } else if (key === "Control") {
+    code = "ControlLeft";
+  }
   element.dispatchEvent(
     new KeyboardEvent(type, {
       key,
       code,
+      ctrlKey: Boolean(options.ctrlKey),
       bubbles: true,
       cancelable: true
     })

@@ -926,8 +926,7 @@ async function typeCharacter(element, char) {
 }
 
 async function typeNewline(element) {
-  dispatchKeyboardEvent(element, "keydown", "Control", { ctrlKey: true });
-  dispatchKeyboardEvent(element, "keydown", "Enter", { ctrlKey: true });
+  dispatchKeyboardEvent(element, "keydown", "Enter");
   dispatchBeforeInputEvent(element, "\n", "insertLineBreak");
 
   if (element instanceof HTMLTextAreaElement || element instanceof HTMLInputElement) {
@@ -940,8 +939,7 @@ async function typeNewline(element) {
   }
 
   dispatchInputEvent(element, "\n", "insertLineBreak");
-  dispatchKeyboardEvent(element, "keyup", "Enter", { ctrlKey: true });
-  dispatchKeyboardEvent(element, "keyup", "Control");
+  dispatchKeyboardEvent(element, "keyup", "Enter");
 }
 
 function insertTextInInput(element, text) {

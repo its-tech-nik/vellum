@@ -77,6 +77,47 @@ function updateActiveElement(target) {
   activeSelector = getUniqueSelector(supported);
 }
 
+function resolveSupportedActiveElement() {
+  updateActiveElement(document.activeElement);
+  if (!(activeElement instanceof HTMLElement)) {
+    activeElement = null;
+    activeSelector = null;
+    return null;
+  }
+  if (!document.contains(activeElement) || !isSupportedField(activeElement)) {
+    activeElement = null;
+    activeSelector = null;
+    return null;
+  }
+  return activeElement;
+}
+
+function showRecorderFocusHint() {
+  const HINT_ID = "typing-sim-focus-hint";
+  document.getElementById(HINT_ID)?.remove();
+
+  const hint = document.createElement("div");
+  hint.id = HINT_ID;
+  hint.textContent = "Focus an input, textarea, or editable field first.";
+  hint.style.position = "fixed";
+  hint.style.bottom = "16px";
+  hint.style.right = "16px";
+  hint.style.zIndex = "2147483647";
+  hint.style.background = "#111827";
+  hint.style.color = "#f9fafb";
+  hint.style.border = "1px solid #374151";
+  hint.style.borderRadius = "8px";
+  hint.style.padding = "8px 10px";
+  hint.style.fontFamily = "Arial, sans-serif";
+  hint.style.fontSize = "12px";
+  hint.style.boxShadow = "0 10px 25px rgba(0, 0, 0, 0.35)";
+  hint.style.maxWidth = "280px";
+  hint.style.pointerEvents = "none";
+
+  document.documentElement.appendChild(hint);
+  window.setTimeout(() => hint.remove(), 2400);
+}
+
 function getUniqueSelector(element) {
   const typingTarget = element.getAttribute("data-typing-target");
   if (typingTarget) {

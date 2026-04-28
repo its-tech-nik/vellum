@@ -25,9 +25,14 @@ document.addEventListener("pointerdown", (event) => {
 
 EXT.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === "OPEN_RECORDER") {
-    openRecorderOverlay();
-    sendResponse({ ok: true });
-    return;
+    openRecorderOverlay().then(
+      () => sendResponse({ ok: true }),
+      (error) => {
+        console.error("Vellum: openRecorderOverlay failed", error);
+        sendResponse({ ok: false, error: String(error?.message || error) });
+      }
+    );
+    return true;
   }
 
   if (message?.type === "PLAY_SNIPPET") {
@@ -63,7 +68,7 @@ function updateActiveElement(target) {
     return;
   }
 
-  const supported = target.closest('textareva, input, [contenteditable="true"], [contenteditable=""], [contenteditable]');
+  const supported = target.closest('textarea, input, [contenteditable="true"], [contenteditable=""], [contenteditable]');
   if (!supported || !isSupportedField(supported)) {
     return;
   }
@@ -354,11 +359,12 @@ function ensureOverlayStyles() {
 }
 
 async function openRecorderOverlay() {
-  updateActiveElement(document.activeElement);
-  if (!activeElement) {
+  const resolvedActiveElement = resolveSupportedActiveElement();
+  if (!resolvedActiveElement) {
+    showRecorderFocusHint();
     return;
   }
-  const recorderTargetElement = activeElement;
+  const recorderTargetElement = resolvedActiveElement;
   const recorderTargetSelector = activeSelector;
   const currentRoutePath = getCurrentRoutePath();
   const hasTargetSelector = Boolean(recorderTargetSelector);
